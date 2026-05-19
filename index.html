@@ -1,0 +1,3021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drawing + Work Entry Demo</title>
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<style>
+    * { box-sizing: border-box; margin:0; padding:0; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { background: linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; padding:20px; }
+    .container { background:white; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.2); width:100%; max-width:1400px; padding:30px; margin: 0 auto; }
+    h2 { color:#333; text-align:center; margin-bottom:30px; font-size:28px; font-weight:600; }
+    
+    .drawing-content {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    @media (min-width: 768px) {
+        .drawing-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: stretch;
+        }
+        
+        .drawing-info, .scan-section {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+    }
+    
+    .drawing-card { 
+        background:#f8f9fa; 
+        border-radius:8px; 
+        padding:25px; 
+        border-left:4px solid #667eea; 
+        box-shadow:0 5px 15px rgba(0,0,0,0.05);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 15px;
+    }
+    
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .form-group.full-width {
+        grid-column: 1 / -1;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: #555;
+        margin-bottom: 6px;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-label:before {
+        content: "•";
+        color: #667eea;
+        margin-right: 6px;
+        font-weight: bold;
+    }
+    
+    .form-value {
+        padding: 12px;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 15px;
+        color: #333;
+        font-weight: 500;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: all 0.3s;
+    }
+    
+    .form-value:hover {
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102,126,234,0.1);
+    }
+    
+    .countdown-container {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 10px;
+        border: 2px solid transparent;
+    }
+    
+    .countdown-container.future {
+        background: rgba(76, 175, 80, 0.1);
+        border-color: #4CAF50;
+    }
+    
+    .countdown-container.past {
+        background: rgba(244, 67, 54, 0.1);
+        border-color: #f44336;
+    }
+    
+    .countdown-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+        text-align: center;
+    }
+    
+    .countdown-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+        text-align: center;
+    }
+    
+    .countdown-negative {
+        color: #f44336;
+        animation: pulse 2s infinite;
+    }
+    
+    .countdown-positive {
+        color: #4CAF50;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    
+    @media (max-width: 767px) {
+        .drawing-card { 
+            padding:15px; 
+            margin-bottom:15px; 
+        }
+        
+        .form-grid {
+            grid-template-columns: 1fr;
+            gap: 15px;
+        }
+        
+        h2 {
+            margin-bottom:20px;
+            font-size:24px;
+        }
+        
+        .container {
+            padding:20px;
+        }
+        
+        .countdown-value {
+            font-size: 1.5rem;
+        }
+    }
+    
+    .scan-section {
+        background:#f8f9fa; 
+        border-radius:8px; 
+        padding:25px; 
+        text-align:center;
+        border-left:4px solid #667eea;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    
+    .scan-instruction { 
+        font-size:18px; 
+        color:#667eea; 
+        font-weight:600; 
+        margin-bottom: 20px;
+    }
+    
+    .scanner-container {
+        width: 100%;
+        height: 300px;
+        border: 2px dashed #bbb;
+        border-radius: 8px;
+        position: relative;
+        background-color: #f9f9f9;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        margin: 0 auto 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    
+    @media (min-width: 768px) {
+        .scanner-container {
+            width: 300px;
+            height: 300px;
+            margin: 0 auto 20px;
+        }
+    }
+    
+    @media (max-width: 767px) {
+        .scanner-container {
+            height: 250px;
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        
+        .scan-section {
+            padding:15px;
+            margin-top: 15px;
+        }
+    }
+    
+    #scannerVideo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    #scannerCanvas {
+        display: none;
+    }
+    
+    .scanner-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,0.95);
+        z-index: 2;
+        flex-direction: column;
+        padding: 20px;
+        text-align: center;
+    }
+    
+    .scanner-overlay.hidden {
+        display: none;
+    }
+    
+    .scanner-status {
+        font-size: 14px;
+        color: #666;
+        margin-top: 15px;
+        padding: 8px 15px;
+        background: rgba(0,0,0,0.05);
+        border-radius: 4px;
+    }
+    
+    .work-section {
+        display: none;
+    }
+    
+    .work-top-header {
+        background: white;
+        padding: 15px 0;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #eee;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    }
+    
+    @media (min-width: 768px) {
+        .work-top-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+    }
+    
+    .user-time-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 10px;
+    }
+    
+    @media (max-width: 767px) {
+        .user-time-container {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+    }
+    
+    .user-display-box {
+        padding: 6px;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        text-align: center;
+        font-weight: 600;
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border: 2px solid transparent;
+    }
+    
+    .user-display-box.current-user {
+        background: rgba(102, 126, 234, 0.1);
+        border-color: #667eea;
+        color: #333;
+    }
+    
+    .current-user .user-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 0;
+    }
+    
+    .current-user .user-label {
+        display: none;
+    }
+    
+    .time-display-box {
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 1.1rem;
+        text-align: center;
+        font-weight: 600;
+        height: auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        border: 2px solid transparent;
+    }
+    
+    .time-display-box.future {
+        background: rgba(76, 175, 80, 0.1);
+        border-color: #4CAF50;
+    }
+    
+    .time-display-box.past {
+        background: rgba(244, 67, 54, 0.1);
+        border-color: #f44336;
+    }
+    
+    .time-value, .user-value {
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 2px;
+    }
+    
+    .time-label, .user-label {
+        font-size: 0.75rem;
+        opacity: 0.9;
+    }
+    
+    .time-negative {
+        color: #f44336;
+        animation: pulse 2s infinite;
+    }
+    
+    .time-positive {
+        color: #4CAF50;
+    }
+    
+    .drawing-info-summary {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 14px;
+        color: #333;
+        line-height: 1.4;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #ddd;
+        margin-bottom: 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .info-item {
+        display: inline-flex;
+        align-items: center;
+        background: white;
+        padding: 3px 8px;
+        border-radius: 15px;
+        border: 1px solid #ddd;
+        font-size: 12px;
+        margin: 1px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #667eea;
+        margin-right: 3px;
+        font-size: 11px;
+    }
+    
+    .info-separator {
+        color: #999;
+        font-weight: bold;
+        margin: 0 3px;
+        font-size: 11px;
+    }
+    
+    @media (min-width: 768px) {
+        .work-main-container {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            gap: 20px;
+            align-items: start;
+            position: relative;
+        }
+        
+        .cards-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            position: sticky;
+            top: 150px;
+            transition: top 0.3s ease;
+            z-index: 10;
+            align-self: flex-start;
+        }
+        
+        .info-sidebar {
+            position: sticky;
+            top: 150px;
+            transition: top 0.3s ease;
+            z-index: 10;
+            align-self: flex-start;
+        }
+        
+        .stack-section {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .content-frame {
+            overflow-anchor: none !important;
+            contain: layout style paint;
+        }
+        
+        .option-item {
+            transform: translateZ(0);
+        }
+    }
+    
+    @media (max-width: 767px) {
+        .work-main-container {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .cards-section {
+            order: 3;
+            margin-top: 20px;
+            position: relative !important;
+            top: auto !important;
+        }
+        
+        .stack-section {
+            order: 4;
+        }
+        
+        .info-sidebar {
+            order: 2;
+            margin-top: 15px;
+            position: relative !important;
+            top: auto !important;
+        }
+    }
+    
+    .card-box {
+        border-radius: 10px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.3s ease;
+        color: #333;
+        text-align: center;
+        padding: 15px;
+        height: 120px;
+        border: 2px solid transparent;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .card-box:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+    }
+    
+    .card-box.selected {
+        border-color: #333;
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.3), 0 8px 20px rgba(0,0,0,0.15);
+    }
+    
+    .c1 { background: #FFD5D5; }
+    .c2 { background: #D7F4F9; }
+    .c3 { background: #EBD8FF; }
+    
+    .card-english {
+        font-size: 18px;
+        margin-bottom: 3px;
+    }
+    
+    .card-chinese {
+        font-size: 14px;
+        font-weight: normal;
+        margin-bottom: 8px;
+    }
+    
+    .user-selection {
+        font-size: 12px;
+        font-weight: normal;
+        color: #333;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 4px 8px;
+        border-radius: 4px;
+        margin-top: 3px;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        height: 20px;
+        min-width: 150px;
+        text-align: center;
+        border: 1px solid rgba(0,0,0,0.1);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .content-frame {
+        width: 100%;
+        min-height: 350px;
+        border-radius: 10px;
+        border: 2px solid #ddd;
+        background: #fff;
+        padding: 20px;
+        overflow-y: auto;
+    }
+    
+    .content-frame:focus {
+        outline: none;
+    }
+    
+    .frame-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 15px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #667eea;
+    }
+    
+    .option-item {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        transition: all 0.2s;
+        background: #f9f9f9;
+        cursor: pointer;
+        position: relative;
+        border: 1px solid transparent;
+    }
+    
+    .option-item:hover {
+        background-color: #f0f0f0;
+        border-color: #ccc;
+    }
+    
+    .option-item.selected {
+        background-color: #e8f4ff;
+        border-color: #667eea;
+    }
+    
+    .custom-radio {
+        margin-right: 10px;
+        margin-top: 2px;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #667eea;
+        border-radius: 50%;
+        background: white;
+        position: relative;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    
+    .custom-radio.selected::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 7px;
+        height: 7px;
+        background: #667eea;
+        border-radius: 50%;
+    }
+    
+    .option-label {
+        flex: 1;
+        cursor: pointer;
+    }
+    
+    .option-english {
+        font-size: 14px;
+        color: #333;
+        margin-bottom: 2px;
+        font-weight: 500;
+    }
+    
+    .option-chinese {
+        font-size: 12px;
+        color: #666;
+    }
+    
+    .quantity-section {
+        margin-top: 15px;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        width: 100%;
+        max-width: 350px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .quantity-input-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+        width: 100%;
+    }
+    
+    .quantity-input-container label {
+        font-weight: 500;
+        color: #555;
+        margin-bottom: 3px;
+        display: block;
+        font-size: 14px;
+    }
+    
+    .quantity-input-container input {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        width: 100%;
+        box-sizing: border-box;
+        cursor: text !important;
+        pointer-events: auto !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        -ms-user-select: auto !important;
+    }
+    
+    .password-section {
+        margin-top: 15px;
+        padding: 15px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        width: 100%;
+        max-width: 350px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+    
+    .password-input {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+        width: 100%;
+    }
+    
+    .password-input input {
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        width: 100%;
+        box-sizing: border-box;
+        cursor: text !important;
+        pointer-events: auto !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        -ms-user-select: auto !important;
+    }
+    
+    .password-input button {
+        padding: 10px 15px;
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.3s;
+        font-size: 14px;
+    }
+    
+    .password-input button:hover {
+        background: #5a6fd8;
+        transform: translateY(-2px);
+    }
+    
+    .info-sidebar {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    
+    @media (min-width: 768px) {
+        .info-sidebar {
+            height: fit-content;
+            max-height: 350px;
+        }
+    }
+    
+    .sidebar-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 15px;
+        text-align: center;
+    }
+    
+    .sidebar-item {
+        margin-bottom: 12px;
+    }
+    
+    .sidebar-label {
+        font-weight: 500;
+        color: #555;
+        margin-bottom: 3px;
+        font-size: 13px;
+    }
+    
+    .sidebar-value {
+        font-size: 14px;
+        color: #333;
+        font-weight: 500;
+        background: white;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid #eee;
+    }
+    
+    .submit-section {
+        text-align: center;
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+    
+    .submit-btn { 
+        background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); 
+        color:white; 
+        border:none;
+        padding:12px 30px; 
+        border-radius:6px; 
+        font-size:15px; 
+        font-weight:600; 
+        cursor:pointer; 
+        transition:all 0.3s; 
+        min-width: 180px; 
+    }
+    
+    .submit-btn:hover:not(:disabled) { 
+        transform:translateY(-2px); 
+        box-shadow:0 5px 15px rgba(102,126,234,0.4); 
+    }
+    
+    .submit-btn:disabled { 
+        background:#cccccc; 
+        cursor: not-allowed;
+    }
+    
+    .submit-btn:active:not(:disabled) { 
+        transform:translateY(0); 
+    }
+
+    .submitting-message {
+        margin-top: 12px;
+        padding: 10px;
+        background: #fff3cd;
+        color: #856404;
+        border-radius: 6px;
+        border: 1px solid #ffc107;
+        display: none;
+        font-size: 14px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .submitting-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #856404;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        flex-shrink: 0;
+    }
+    
+    .success-message {
+        margin-top: 12px;
+        padding: 10px;
+        background: #d4edda;
+        color: #155724;
+        border-radius: 6px;
+        border: 1px solid #c3e6cb;
+        display: none;
+        font-size: 14px;
+    }
+
+    .submit-error-message {
+        margin-top: 12px;
+        padding: 10px;
+        background: #f8d7da;
+        color: #721c24;
+        border-radius: 6px;
+        border: 1px solid #f5c6cb;
+        display: none;
+        font-size: 14px;
+    }
+    
+    #scannerInput {
+        opacity: 0;
+        position: absolute;
+        left: -9999px;
+    }
+    
+    @media (max-width: 600px) {
+        .container { padding:15px; }
+        h2 { font-size:22px; margin-bottom:15px; }
+        .content-frame {
+            min-height: 300px;
+            padding: 15px;
+        }
+        .card-box {
+            height: 110px;
+            padding: 12px;
+        }
+        .card-english {
+            font-size: 16px;
+        }
+        .card-chinese {
+            font-size: 13px;
+        }
+        .user-selection {
+            font-size: 11px;
+            padding: 2px 5px;
+            min-width: 130px;
+        }
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .section {
+        display: none;
+    }
+    
+    #drawingSection {
+        display: block;
+    }
+    
+    .scanner-controls {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+    
+    .scanner-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: #667eea;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+    
+    .scanner-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+        background: #5a6fd8;
+    }
+    
+    .scanner-btn.stop {
+        background: #f44336;
+    }
+    
+    .scanner-btn.stop:hover {
+        background: #e53935;
+        box-shadow: 0 5px 15px rgba(244,67,54,0.4);
+    }
+    
+    .scanner-btn.switch {
+        background: #2196F3;
+    }
+    
+    .scanner-btn.switch:hover {
+        background: #1e88e5;
+        box-shadow: 0 5px 15px rgba(33,150,243,0.4);
+    }
+    
+    .employee-welcome {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 12px 0;
+        text-align: center;
+        display: none;
+    }
+    
+    .welcome-text {
+        font-size: 14px;
+        color: rgba(255,255,255,0.9);
+    }
+    
+    .employee-name {
+        font-size: 18px;
+        font-weight: 600;
+        margin-top: 3px;
+    }
+    
+    .scanning-status {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+        background-color: #4CAF50;
+        animation: pulse 1.5s infinite;
+    }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-content {
+        background: white;
+        padding: 15px;
+        border-radius: 15px;
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+        max-height: 65vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .modal h3 {
+        margin-bottom: 10px;
+        color: #2c3e50;
+        font-size: 18px;
+    }
+    
+    .modal p {
+        margin-bottom: 6px;
+        color: #555;
+        line-height: 1.3;
+        text-align: left;
+        font-size: 13px;
+    }
+    
+    .modal-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 15px;
+        padding-top: 10px;
+        border-top: 1px solid #eee;
+        flex-shrink: 0;
+    }
+    
+    .modal-btn {
+        padding: 8px 20px;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 14px;
+        min-width: 80px;
+    }
+    
+    .modal-btn.yes {
+        background: #2ecc71;
+        color: white;
+    }
+    
+    .modal-btn.no {
+        background: #e74c3c;
+        color: white;
+    }
+    
+    .modal-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .modal-btn:active {
+        transform: translateY(0);
+    }
+    
+    .clickable-input {
+        pointer-events: auto !important;
+        cursor: text !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        -ms-user-select: auto !important;
+    }
+    
+    #deficiencyInput input:focus,
+    .password-input input:focus,
+    .quantity-input-container input:focus,
+    #jobCompletedQuantity:focus {
+        border-color: #667eea !important;
+        outline: none !important;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+    }
+    
+    .camera-instruction {
+        font-size: 13px;
+        color: #2196F3;
+        margin: 8px 0;
+        font-weight: 500;
+        padding: 6px 10px;
+        background: rgba(33, 150, 243, 0.1);
+        border-radius: 4px;
+        display: inline-block;
+    }
+    
+    .loading-container {
+        text-align: center;
+        padding: 15px;
+        display: none;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+    }
+    
+    .error-container {
+        background-color: #ffeaea;
+        border-left: 5px solid #e74c3c;
+        padding: 12px;
+        margin-bottom: 15px;
+        border-radius: 5px;
+        display: none;
+    }
+    
+    .error-title {
+        color: #c0392b;
+        font-weight: 600;
+        margin-bottom: 6px;
+        font-size: 15px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .hidden-iframe {
+        display: none;
+        width: 0;
+        height: 0;
+        border: none;
+    }
+    
+    @media (min-width: 768px) {
+        .content-frame {
+            overflow-anchor: none !important;
+            scroll-behavior: auto !important;
+            contain: layout style paint;
+            will-change: transform;
+        }
+        
+        .option-item, .custom-radio, .option-label {
+            transform: translateZ(0);
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+        
+        #deficiencyText, #jobCompletedQuantity, #qcPassword {
+            user-select: auto !important;
+            -webkit-user-select: auto !important;
+        }
+    }
+    
+    .qc-question {
+        margin-bottom: 15px;
+        padding: 12px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        position: relative;
+    }
+    
+    .question-number {
+        font-weight: bold;
+        color: #667eea;
+        margin-right: 6px;
+        font-size: 14px;
+    }
+    
+    .question-text {
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 8px;
+        font-size: 14px;
+        line-height: 1.3;
+    }
+    
+    .question-chinese {
+        color: #666;
+        font-size: 12px;
+        margin-top: 3px;
+        line-height: 1.2;
+    }
+    
+    .qc-options {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 8px;
+    }
+    
+    .qc-option-item {
+        display: flex;
+        align-items: center;
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: white;
+        border: 1px solid #ddd;
+        cursor: pointer;
+        transition: all 0.2s;
+        min-height: 36px;
+    }
+    
+    .qc-option-item:hover {
+        background: #f0f0f0;
+        border-color: #bbb;
+    }
+    
+    .qc-option-item.selected {
+        background: #e8f4ff;
+        border-color: #667eea;
+    }
+    
+    .qc-radio {
+        margin-right: 8px;
+        width: 14px;
+        height: 14px;
+        border: 2px solid #667eea;
+        border-radius: 50%;
+        background: white;
+        position: relative;
+        flex-shrink: 0;
+    }
+    
+    .qc-radio.selected::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 6px;
+        height: 6px;
+        background: #667eea;
+        border-radius: 50%;
+    }
+    
+    .qc-option-text {
+        flex: 1;
+        font-size: 13px;
+        line-height: 1.3;
+    }
+    
+    .qc-details {
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid #eee;
+    }
+    
+    .details-label {
+        font-size: 12px;
+        color: #555;
+        margin-bottom: 4px;
+        font-weight: 500;
+    }
+    
+    .details-input {
+        width: 100%;
+        padding: 6px 10px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 13px;
+        box-sizing: border-box;
+        transition: all 0.3s;
+        cursor: text !important;
+        pointer-events: auto !important;
+        user-select: auto !important;
+        -webkit-user-select: auto !important;
+        -moz-user-select: auto !important;
+        -ms-user-select: auto !important;
+        min-height: 34px;
+    }
+    
+    .details-input:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+    
+    .error-highlight {
+        border: 1px solid #f44336 !important;
+        background: #fff5f5 !important;
+    }
+    
+    .error-message {
+        color: #f44336;
+        font-size: 11px;
+        margin-top: 3px;
+        display: none;
+    }
+    
+    .qc-summary-compact {
+        margin: 8px 0;
+        padding: 8px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        max-height: 180px;
+        overflow-y: auto;
+        font-size: 12px;
+    }
+    
+    .qc-summary-row {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 4px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid #eee;
+        min-height: 22px;
+    }
+    
+    .qc-summary-row:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+    }
+    
+    .qc-summary-number {
+        font-weight: bold;
+        color: #667eea;
+        min-width: 20px;
+        font-size: 11px;
+        line-height: 1.2;
+    }
+    
+    .qc-summary-answer {
+        flex: 1;
+        font-size: 11px;
+        color: #333;
+        line-height: 1.2;
+    }
+    
+    .qc-summary-details {
+        font-size: 10px;
+        color: #666;
+        margin-top: 1px;
+        font-style: italic;
+        line-height: 1.1;
+    }
+    
+    .qc-question * {
+        pointer-events: auto;
+    }
+    
+    @media (min-width: 768px) {
+        .qc-question {
+            margin-bottom: 12px;
+            padding: 10px;
+        }
+        
+        .question-text {
+            font-size: 13px;
+        }
+        
+        .question-chinese {
+            font-size: 11px;
+        }
+        
+        .qc-option-text {
+            font-size: 12px;
+        }
+        
+        .details-input {
+            font-size: 12px;
+            padding: 5px 8px;
+        }
+    }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="error-container" id="errorContainer">
+    <div class="error-title" id="errorTitle">Error Title</div>
+    <div id="errorMessage">Error details will appear here.</div>
+  </div>
+  
+  <div class="loading-container" id="loadingContainer">
+    <div class="spinner"></div>
+    <p id="loadingText">Loading product information...</p>
+  </div>
+  
+  <input type="text" id="scannerInput" autofocus>
+
+  <div id="confirmationModal" class="modal">
+    <div class="modal-content">
+        <h3>Confirm Selection</h3>
+        <div id="modalMessage" style="text-align: left; margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 6px; border: 1px solid #ddd; font-size: 12px;">
+        </div>
+        <div class="modal-buttons">
+            <button class="modal-btn yes" onclick="confirmSubmit()">Yes</button>
+            <button class="modal-btn no" onclick="cancelSubmit()">No</button>
+        </div>
+    </div>
+  </div>
+
+  <form id="dataForm" method="post" target="hiddenIframe" style="display: none;">
+    <input type="hidden" id="form_timestamp" name="timestamp">
+    <input type="hidden" id="form_name" name="name">
+    <input type="hidden" id="form_action" name="action">
+    <input type="hidden" id="form_received" name="received">
+    <input type="hidden" id="form_check" name="check">
+    <input type="hidden" id="form_jobCompleted" name="jobCompleted">
+    <input type="hidden" id="form_quantity" name="quantity">
+    <input type="hidden" id="form_spreadsheetId" name="spreadsheetId">
+    <input type="hidden" id="form_sheetName" name="sheetName">
+    <input type="hidden" id="form_salesOrderNo" name="salesOrderNo">
+    <input type="hidden" id="form_itemNo" name="itemNo">
+    <input type="hidden" id="form_qc1" name="qc1">
+    <input type="hidden" id="form_qc1_details" name="qc1_details">
+    <input type="hidden" id="form_qc2" name="qc2">
+    <input type="hidden" id="form_qc2_details" name="qc2_details">
+    <input type="hidden" id="form_qc3" name="qc3">
+    <input type="hidden" id="form_qc3_details" name="qc3_details">
+    <input type="hidden" id="form_qc4" name="qc4">
+    <input type="hidden" id="form_qc4_details" name="qc4_details">
+    <input type="hidden" id="form_qc5" name="qc5">
+    <input type="hidden" id="form_qc5_details" name="qc5_details">
+    <input type="hidden" id="form_qc6" name="qc6">
+    <input type="hidden" id="form_qc6_details" name="qc6_details">
+    <input type="hidden" id="form_qc7" name="qc7">
+    <input type="hidden" id="form_qc7_details" name="qc7_details">
+    <input type="hidden" id="form_qc8" name="qc8">
+    <input type="hidden" id="form_qc8_details" name="qc8_details">
+    <input type="hidden" id="form_qc9" name="qc9">
+    <input type="hidden" id="form_qc9_details" name="qc9_details">
+    <input type="hidden" id="form_qc10" name="qc10">
+    <input type="hidden" id="form_qc10_details" name="qc10_details">
+    <input type="hidden" id="form_qc11" name="qc11">
+    <input type="hidden" id="form_qc11_details" name="qc11_details">
+    <input type="hidden" id="form_qc12" name="qc12">
+    <input type="hidden" id="form_qc12_details" name="qc12_details">
+    <input type="hidden" id="form_qc13" name="qc13">
+    <input type="hidden" id="form_qc13_details" name="qc13_details">
+    <input type="hidden" id="form_qc14" name="qc14">
+    <input type="hidden" id="form_qc14_details" name="qc14_details">
+    <input type="hidden" id="form_qc15" name="qc15">
+    <input type="hidden" id="form_qc15_details" name="qc15_details">
+    <input type="hidden" id="form_qc16" name="qc16">
+    <input type="hidden" id="form_qc16_details" name="qc16_details">
+    <input type="hidden" id="form_qc17" name="qc17">
+    <input type="hidden" id="form_qc17_details" name="qc17_details">
+    <input type="hidden" id="form_qc18" name="qc18">
+    <input type="hidden" id="form_qc18_details" name="qc18_details">
+    <input type="hidden" id="form_qc19" name="qc19">
+    <input type="hidden" id="form_qc19_details" name="qc19_details">
+    <input type="hidden" id="form_qc20" name="qc20">
+    <input type="hidden" id="form_qc20_details" name="qc20_details">
+    <input type="hidden" id="form_qc21" name="qc21">
+    <input type="hidden" id="form_qc21_details" name="qc21_details">
+    <input type="hidden" id="form_qc22" name="qc22">
+    <input type="hidden" id="form_qc22_details" name="qc22_details">
+  </form>
+  <iframe name="hiddenIframe" id="hiddenIframe" class="hidden-iframe"></iframe>
+
+  <div id="drawingSection" class="section" style="display:block;">
+    <h2>📋 Drawing Information</h2>
+    
+    <div class="drawing-content">
+        <div class="drawing-info">
+            <div class="drawing-card">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <div class="form-label">Sales Order No.</div>
+                        <div class="form-value" id="salesOrderNo">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label">Item No.</div>
+                        <div class="form-value" id="itemNo">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label">Customer Name</div>
+                        <div class="form-value" id="customerName">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label">Item Name</div>
+                        <div class="form-value" id="itemName">Loading...</div>
+                    </div>
+                    <div class="form-group full-width">
+                        <div class="form-label">Dimension</div>
+                        <div class="form-value" id="dimension">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label">Quantity</div>
+                        <div class="form-value" id="quantity">Loading...</div>
+                    </div>
+                    <div class="form-group">
+                        <div class="form-label">Unit of Measurement</div>
+                        <div class="form-value" id="unitOfMeasurement">Loading...</div>
+                    </div>
+                    <div class="form-group full-width">
+                        <div class="form-label">Estimated Delivery Date</div>
+                        <div class="form-value" id="estimatedDeliveryDate">Loading...</div>
+                    </div>
+                </div>
+                
+                <div id="countdownContainer1" class="countdown-container">
+                </div>
+            </div>
+        </div>
+        
+        <div class="scan-section">
+            <div class="scan-instruction">Please scan your <b>Credential QR Code</b></div>
+            
+            <div class="employee-welcome" id="employeeWelcome">
+                <div class="welcome-text">Authenticated as:</div>
+                <div class="employee-name" id="employeeNameDisplay"></div>
+            </div>
+            
+            <div class="camera-instruction" id="cameraInstruction" style="display: none;">
+                <span class="scanning-status"></span> Scanning for QR codes...
+            </div>
+            
+            <div class="scanner-container" id="scannerContainer">
+                <div class="scanner-overlay" id="scannerOverlay">
+                    <div style="font-size: 48px; margin-bottom: 10px;">📱</div>
+                    <p style="color: #666; margin-bottom: 15px; font-size: 16px;">
+                        QR Code Scanner Area
+                    </p>
+                    
+                    <div class="scanner-controls" id="scannerControls">
+                        <button class="scanner-btn" id="startScanner">
+                            <span>📷</span> Start Camera
+                        </button>
+                        <button class="scanner-btn stop" id="stopScanner" style="display: none;">
+                            <span>❌</span> Stop Camera
+                        </button>
+                        <button class="scanner-btn switch" id="switchCamera" style="display: none;">
+                            <span>🔄</span> Switch Camera
+                        </button>
+                    </div>
+                    
+                    <div class="scanner-status">
+                        <div style="margin-top: 15px; font-size: 13px; color: #888;">
+                            Supports both front and back cameras
+                        </div>
+                    </div>
+                </div>
+                <video id="scannerVideo" playsinline></video>
+                <canvas id="scannerCanvas"></canvas>
+            </div>
+        </div>
+    </div>
+  </div>
+
+  <div id="workSection" class="section">
+    
+    <div class="work-top-header">
+        <div class="user-time-container">
+            <div class="user-display-box current-user" id="userDisplay">
+                <div class="user-value" id="currentUserName">Current User：Not authenticated</div>
+            </div>
+            <div class="time-display-box" id="countdownContainer2">
+            </div>
+        </div>
+        
+        <div class="drawing-info-summary" id="drawingInfoSummary" style="display: none;">
+        </div>
+    </div>
+    
+    <div class="work-main-container">
+        <div class="cards-section">
+            <div class="card-box c1 selected" data-card-index="0">
+                <div class="card-english">Received From</div>
+                <div class="card-chinese">从哪收到</div>
+                <div class="user-selection" id="cardSelection0"></div>
+            </div>
+            <div class="card-box c2" data-card-index="1">
+                <div class="card-english">Job Completed</div>
+                <div class="card-chinese">已完成的工作</div>
+                <div class="user-selection" id="cardSelection1"></div>
+            </div>
+            <div class="card-box c3" data-card-index="2">
+                <div class="card-english">Quality Control</div>
+                <div class="card-chinese">质量检查</div>
+                <div class="user-selection" id="cardSelection2"></div>
+            </div>
+        </div>
+        
+        <div class="stack-section">
+            <div class="content-frame" id="contentFrame" tabindex="-1">
+            </div>
+            
+            <div class="submit-section">
+                <button id="submitBtn" class="submit-btn">Submit Data</button>
+                <div id="submittingMessage" class="submitting-message">
+                    <div class="submitting-spinner"></div>
+                    <span>Submitting... Please wait</span>
+                </div>
+                <div id="successMessage" class="success-message">
+                    ✅ Data successfully submitted!
+                </div>
+                <div id="submitErrorMessage" class="submit-error-message">
+                    ❌ Submission failed. Please try again.
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-sidebar">
+            <div class="sidebar-title">Last User Information</div>
+            <div class="sidebar-item">
+                <div class="sidebar-label">Last User</div>
+                <div class="sidebar-value" id="lastUserValue">-</div>
+            </div>
+            <div class="sidebar-item">
+                <div class="sidebar-label">Last User Status</div>
+                <div class="sidebar-value" id="lastUserStatusValue">-</div>
+            </div>
+            <div class="sidebar-item">
+                <div class="sidebar-label">Last User Selection</div>
+                <div class="sidebar-value" id="lastUserSelectionValue">-</div>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== CryptoJS already loaded via CDN ==========
+
+// ========== NEW: Decrypt data from local .enc file ==========
+function decodeBase64(str) {
+    try {
+        return decodeURIComponent(atob(str).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+    } catch (error) {
+        console.error('Base64 decoding error:', error);
+        throw new Error('Invalid base64 encoding');
+    }
+}
+
+function getUrlParameters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const encodedH = urlParams.get('H');
+    const encodedK = urlParams.get('K');
+    
+    if (!encodedH) {
+        console.log('No H parameter found');
+        return null;
+    }
+    
+    try {
+        const decodedH = decodeBase64(encodedH);
+        const parts = decodedH.split('&');
+        
+        if (parts.length !== 2) {
+            console.error('Decoded H does not contain SO and ItemNo');
+            return null;
+        }
+        
+        let encryptionKey = '';
+        if (encodedK) {
+            encryptionKey = decodeBase64(encodedK);
+        }
+        
+        return {
+            salesOrderNo: parts[0],
+            itemNo: parts[1],
+            encryptionKey: encryptionKey
+        };
+    } catch (error) {
+        console.error('Error decoding URL parameters:', error);
+        return null;
+    }
+}
+
+async function fetchProductData(salesOrderNo, itemNo, encryptionKey) {
+    // Build filename: ItemNo_SalesOrderNo.enc
+    const cleanSO = salesOrderNo.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const cleanItem = itemNo.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `${cleanItem}_${cleanSO}.enc`;
+    const fileUrl = `/Drawing-QR-Template-Reading-Acceleration/data/${filename}`;
+    
+    console.log(`Fetching encrypted file: ${fileUrl}`);
+    
+    const response = await fetch(fileUrl);
+    
+    if (!response.ok) {
+        throw new Error(`Encrypted file not found: ${filename} (${response.status})`);
+    }
+    
+    const encryptedData = await response.text();
+    
+    // Decrypt with AES
+    const decrypted = CryptoJS.AES.decrypt(encryptedData, encryptionKey);
+    const jsonString = decrypted.toString(CryptoJS.enc.Utf8);
+    
+    if (!jsonString) {
+        throw new Error('Decryption failed - wrong key or corrupted data');
+    }
+    
+    const productData = JSON.parse(jsonString);
+    
+    // Build itemName from parts
+    if (productData.itemNameMain && productData.itemNameSub) {
+        productData.itemName = `${productData.itemNameMain} ${productData.itemNameSub}`;
+    } else if (productData.itemNameMain) {
+        productData.itemName = productData.itemNameMain;
+    } else {
+        productData.itemName = '-';
+    }
+    
+    return {
+        data: productData,
+        success: true
+    };
+}
+
+// ========== Legacy GAS functions for submission ==========
+async function fetchLastUserData(salesOrderNo, itemNo) {
+    try {
+        const gasWebAppUrl = 'https://script.google.com/macros/s/AKfycbxcojZwHf6OCFr4XAiyJvDuQ0jnc8e0J_8WfXZ-MChSgJ-5V8mSkJ7UuhfGaLVzJFa6tQ/exec';
+        
+        const response = await fetch(`${gasWebAppUrl}?salesOrderNo=${encodeURIComponent(salesOrderNo)}&itemNo=${encodeURIComponent(itemNo)}&getLastUser=true`);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch last user data: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching last user data:', error);
+        return {
+            success: false,
+            lastUser: '-',
+            lastUserStatus: '-',
+            lastUserSelection: '-'
+        };
+    }
+}
+
+// ========== Countdown functions (unchanged) ==========
+function calculateTimeRemaining(eddDateString) {
+    if (!eddDateString || eddDateString === 'N/A' || eddDateString === 'Not available' || eddDateString === '-') {
+        return { isValid: false, message: 'No EDD provided' };
+    }
+    
+    try {
+        let eddDate;
+        if (eddDateString.includes('/')) {
+            const parts = eddDateString.split('/');
+            eddDate = new Date(parts[2], parts[1] - 1, parts[0]);
+        } else {
+            eddDate = new Date(eddDateString);
+        }
+        
+        if (isNaN(eddDate.getTime())) {
+            return { isValid: false, message: 'Invalid date format' };
+        }
+        
+        eddDate.setHours(8, 0, 0, 0);
+        
+        const now = new Date();
+        const diffMs = eddDate - now;
+        const diffSeconds = Math.floor(Math.abs(diffMs) / 1000);
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        const diffHours = Math.floor(diffMinutes / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        
+        const remainingSeconds = diffSeconds % 60;
+        const remainingMinutes = diffMinutes % 60;
+        const remainingHours = diffHours % 24;
+        const isFuture = diffMs > 0;
+        
+        return {
+            isValid: true,
+            isFuture: isFuture,
+            diffMs: diffMs,
+            days: diffDays,
+            hours: remainingHours,
+            minutes: remainingMinutes,
+            seconds: remainingSeconds,
+            totalSeconds: diffSeconds,
+            eddDateTime: eddDate,
+            currentTime: now
+        };
+    } catch (error) {
+        return { isValid: false, message: 'Invalid date format' };
+    }
+}
+
+function formatTimeRemaining(timeData) {
+    if (!timeData.isValid) {
+        return `<div style="color: #666; text-align: center; padding: 20px;">
+                    <div style="font-size: 1.2rem; margin-bottom: 10px; color: #f44336;">⚠️</div>
+                    <div>Please contact Admin for further assistance</div>
+                </div>`;
+    }
+    
+    if (timeData.isFuture) {
+        return `
+            <div class="countdown-container future">
+                <div class="countdown-value countdown-positive">
+                    ${timeData.days}d ${timeData.hours}h ${timeData.minutes}m ${timeData.seconds}s
+                </div>
+                <div class="countdown-label">Remaining until EDD (8:00 AM)</div>
+            </div>
+        `;
+    } else {
+        return `
+            <div class="countdown-container past">
+                <div class="countdown-value countdown-negative">
+                    ${timeData.days}d ${timeData.hours}h ${timeData.minutes}m ${timeData.seconds}s
+                </div>
+                <div class="countdown-label">Exceeded EDD (8:00 AM)</div>
+            </div>
+        `;
+    }
+}
+
+function formatTimeRemainingWorkPage(timeData) {
+    if (!timeData.isValid) {
+        return `<div style="color: #666; text-align: center; padding: 20px;">
+                    <div style="font-size: 1.2rem; margin-bottom: 10px; color: #f44336;">⚠️</div>
+                    <div>Please contact Admin for further assistance</div>
+                </div>`;
+    }
+    
+    if (timeData.isFuture) {
+        return `
+            <div class="time-display-box future">
+                <div class="time-value time-positive">
+                    ${timeData.days}d ${timeData.hours}h ${timeData.minutes}m ${timeData.seconds}s
+                </div>
+                <div class="time-label">Remaining until EDD (8:00 AM)</div>
+            </div>
+        `;
+    } else {
+        return `
+            <div class="time-display-box past">
+                <div class="time-value time-negative">
+                    ${timeData.days}d ${timeData.hours}h ${timeData.minutes}m ${timeData.seconds}s
+                </div>
+                <div class="time-label">Exceeded EDD (8:00 AM)</div>
+            </div>
+        `;
+    }
+}
+
+function startCountdown(eddDateString) {
+    if (countdownInterval) clearInterval(countdownInterval);
+    
+    if (!eddDateString || eddDateString === 'N/A' || eddDateString === 'Not available' || eddDateString === '-') {
+        const c1 = document.getElementById('countdownContainer1');
+        if (c1) c1.innerHTML = `<div style="color: #666; text-align: center; padding: 20px;"><div style="font-size: 1.2rem; margin-bottom: 10px; color: #f44336;">⚠️</div><div>Please contact Admin</div></div>`;
+        const c2 = document.getElementById('countdownContainer2');
+        if (c2) c2.innerHTML = `<div style="color: #666; text-align: center; padding: 20px;"><div style="font-size: 1.2rem; margin-bottom: 10px; color: #f44336;">⚠️</div><div>Please contact Admin</div></div>`;
+        return null;
+    }
+    
+    countdownInterval = setInterval(() => {
+        const timeData = calculateTimeRemaining(eddDateString);
+        if (timeData.isValid) {
+            const c1 = document.getElementById('countdownContainer1');
+            if (c1) c1.innerHTML = formatTimeRemaining(timeData);
+            const c2 = document.getElementById('countdownContainer2');
+            if (c2) c2.innerHTML = formatTimeRemainingWorkPage(timeData);
+        } else {
+            clearInterval(countdownInterval);
+        }
+    }, 1000);
+    
+    const timeData = calculateTimeRemaining(eddDateString);
+    const c1 = document.getElementById('countdownContainer1');
+    if (c1) c1.innerHTML = formatTimeRemaining(timeData);
+    const c2 = document.getElementById('countdownContainer2');
+    if (c2) c2.innerHTML = formatTimeRemainingWorkPage(timeData);
+    
+    return countdownInterval;
+}
+
+function showError(title, message) {
+    document.getElementById('errorTitle').textContent = title;
+    document.getElementById('errorMessage').textContent = message;
+    document.getElementById('errorContainer').style.display = 'block';
+    document.getElementById('loadingContainer').style.display = 'none';
+}
+
+function hideError() {
+    document.getElementById('errorContainer').style.display = 'none';
+}
+
+function displayProductData(data, isDefault = false) {
+    if (isDefault) {
+        document.getElementById('salesOrderNo').textContent = '-';
+        document.getElementById('itemNo').textContent = '-';
+        document.getElementById('customerName').textContent = '-';
+        document.getElementById('itemName').textContent = '-';
+        document.getElementById('dimension').textContent = '-';
+        document.getElementById('quantity').textContent = '-';
+        document.getElementById('unitOfMeasurement').textContent = '-';
+        document.getElementById('estimatedDeliveryDate').textContent = '-';
+        
+        drawingInfo.salesOrder = '-';
+        drawingInfo.itemNo = '-';
+        drawingInfo.customerName = '-';
+        drawingInfo.itemName = '-';
+        drawingInfo.dimension = '-';
+        drawingInfo.quantity = '-';
+        drawingInfo.unit = '-';
+        drawingInfo.deliveryDate = '-';
+    } else {
+        document.getElementById('salesOrderNo').textContent = data.salesOrderNo || '-';
+        document.getElementById('itemNo').textContent = data.itemNo || '-';
+        document.getElementById('customerName').textContent = data.customerName || '-';
+        
+        const itemNameElement = document.getElementById('itemName');
+        if (data.itemNameMain && data.itemNameSub) {
+            itemNameElement.textContent = `${data.itemNameMain} ${data.itemNameSub}`;
+        } else if (data.itemName) {
+            itemNameElement.textContent = data.itemName;
+        } else {
+            itemNameElement.textContent = '-';
+        }
+        
+        document.getElementById('dimension').textContent = data.dimension || '-';
+        document.getElementById('quantity').textContent = data.quantity || '-';
+        document.getElementById('unitOfMeasurement').textContent = data.unitOfMeasurement || '-';
+        document.getElementById('estimatedDeliveryDate').textContent = data.estimatedDeliveryDate || '-';
+        
+        drawingInfo.salesOrder = data.salesOrderNo || '-';
+        drawingInfo.itemNo = data.itemNo || '-';
+        drawingInfo.customerName = data.customerName || '-';
+        drawingInfo.itemName = data.itemName || (data.itemNameMain || '-');
+        drawingInfo.dimension = data.dimension || '-';
+        drawingInfo.quantity = data.quantity || '-';
+        drawingInfo.unit = data.unitOfMeasurement || '-';
+        drawingInfo.deliveryDate = data.estimatedDeliveryDate || '-';
+    }
+}
+
+// ========== Employee mapping ==========
+const EMPLOYEE_MAP = {
+    'Cassandra-7UVPYdf2XR594Zpe': 'Cassandra',
+    'Ethan-Chuu-Gpc23kQxF8Z9tB17': 'Ethan Chuu',
+    'Victor-So-R4CwQ2ZY9NvbDhST': 'Victor So',
+    'Albert-nX4G9VmZ8eH2CLaD': 'Albert',
+    'Aung-Thant-P3JdM6KQ4BqvARZ5': 'Aung Thant',
+    'Bunyau-wZ2sF8mP1HkQ3DVL': 'Bunyau',
+    'Chin-Sau-Ying-Q9T2gA5XvM8JZb4c': 'Chin Sau Ying',
+    'Edika-LrF7W6eZV4sC3PN5': 'Edika',
+    'Han-Lin-Maung-8DqZKT9WHXQpM32A': 'Han Lin Maung',
+    'Lee-Lung-Chay-C4VZsT2m76gYLRN1': 'Lee Lung Chay',
+    'Luna-tXq4m89P3bKZHEVg': 'Luna',
+    'Myo-Min-Naing-2XQVf9cDyPWL7M8k': 'Myo Min Naing',
+    'Peter-Seah-a9CZTq73r4XHB8nG': 'Peter Seah',
+    'Piang-Soe-K7s4pP98tV2HGDJx': 'Piang Soe',
+    'Terrence-MZC4nsp8B6L1y2F9': 'Terrence',
+    'Wai-Phyo-f3XvGMkQ6NDTWP98': 'Wai Phyo',
+    'William-Choo-Y62T4PH9NVxAEZ3k': 'William Choo',
+    'Wong-Chok-Poh-sD7VAX4pW1fheN92': 'Wong Chok Poh',
+    'Jessie-Tew-H8C2GNPaX1DLRQtv': 'Jessie Tew',
+    'Shirley-Tew-WN6AsPeKZC97fqB3': 'Shirley Tew',
+    'Cyril-ZYLfM3Bv859aDRcQ': 'Cyril',
+    'Ocean-Chuu-T24pkC8M9GZ6NWAV': 'Ocean Chuu',
+    'Kuan-3x8BRtq6EQfMPSHd': 'Kuan',
+    'Ghan-bT7EYUd6QRgsC4Vk': 'Ghan',
+    'Michelle-Tew-DBRT2EC3S9kqKhlx': 'Michelle Tew',
+    'Ko-Gyi-sPTZ1Vg6YxJWhb8k': 'Ko Gyi',
+    'Zue-Hlang-Htoo-V3CSX4qL8K9WuZte': 'Zue Hlang Htoo',
+    'Ah-Hui-vL4GzrS1M7Q8bNTc': 'Ah Hui',
+    'Candy-hD9Waf6NBm1VjYTw': 'Candy',
+    'Diana-S8aWXQTDMy46nVK2': 'Diana',
+    'Tun-Myint-Aung-Q7AfJNbXzt3EVc46': 'Tun Myint Aung'
+};
+
+const JOB_COMPLETED_USERS_NO_QUANTITY = [
+    'Cassandra', 'Ethan Chuu', 'Victor So', 'Jessie Tew', 'Shirley Tew',
+    'Cyril', 'Ocean Chuu', 'Kuan', 'Michelle Tew', 'Candy', 'Diana', 'Ghan'
+];
+
+// ========== Global variables ==========
+let currentUser = "";
+let currentCardIndex = 0;
+let selectedOptions = {
+    receivedFrom1: null,
+    receivedFrom2: null,
+    jobCompleted: null,
+    qualityControl: null
+};
+let jobCompletedQuantity = "";
+let isSubmitted = false;
+let qcUnlocked = false;
+let countdownInterval = null;
+
+let qrScannerActive = false;
+let videoStream = null;
+let currentFacingMode = "environment";
+let html5QrcodeScanner = null;
+let isMobileDevice = false;
+
+let drawingInfo = {
+    salesOrder: "-", itemNo: "-", customerName: "-", itemName: "-",
+    dimension: "-", quantity: "-", unit: "-", deliveryDate: "-"
+};
+
+let targetSpreadsheetInfo = { spreadsheetId: "", sheetName: "", rowNumber: 0 };
+
+let qcData = {};
+for (let i = 1; i <= 22; i++) {
+    qcData[`qc${i}`] = { selected: null, details: '' };
+}
+
+const QC_QUESTIONS = [
+    { id: 'qc1', en: 'Conformance of the finished product to its intended design functionality', cn: '成品是否满足其预期的设计功能', options: [{ en: 'Conform', cn: '满足' }, { en: 'Not Conform', cn: '不满足' }] },
+    { id: 'qc2', en: 'Conformance of metal material thickness to drawing', cn: '金属材料厚度是否符合图纸？', options: [{ en: 'Conform', cn: '符合' }, { en: 'Not Conform', cn: '不符合' }] },
+    { id: 'qc3', en: 'Based on the drawing, the accuracy of the finished product\'s dimensions', cn: '以图纸为依据，成品尺寸的是否准确', options: [{ en: 'Accurate', cn: '准确' }, { en: 'Deviant', cn: '偏离' }] },
+    { id: 'qc4', en: 'The appearance/structure of finished product matches the drawing?', cn: '成品外形/结构是否符合图纸?', options: [{ en: 'Match', cn: '符合' }, { en: 'Mismatch', cn: '不符合' }] },
+    { id: 'qc5', en: 'Surface condition of finished product？（Please describe dented area）', cn: '成品表面是否凹陷？(请描述凹陷区域）', options: [{ en: 'Flat', cn: '平整' }, { en: 'Dent', cn: '凹陷' }] },
+    { id: 'qc6', en: 'Finishing of the surface of finished product matches the drawing?', cn: '成品表面色泽/纹路是否符合图纸?', options: [{ en: 'Match', cn: '符合' }, { en: 'Mismatch', cn: '不符合' }] },
+    { id: 'qc7', en: 'Completely Clean？(Please describe the unclean areas/locations)', cn: '是否完整清洗干净? (请描述不干净的位置）', options: [{ en: 'Clean', cn: '干净' }, { en: 'Finger Print', cn: '指纹' }, { en: 'Chemical Stain', cn: '化学痕迹' }, { en: 'Marker Pen Mark', cn: '记号笔痕迹' }, { en: 'Laser Film', cn: '激光膜' }, { en: 'Welding Stain', cn: '焊接污渍' }] },
+    { id: 'qc8', en: 'Sharp Edge/Corner? (Please describe the sharp areas/locations)', cn: '成品的边缘/角头是否锐利? (请描述锐利区域)', options: [{ en: 'Smooth', cn: '平滑' }, { en: 'Sharp', cn: '锐利' }] },
+    { id: 'qc9', en: 'Is the overall welding qualified? (Please describe the area of welding that disqualified)', cn: '焊接整体是否合格？(请描述焊接不合格的区域）', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Qualified', cn: '合格' }, { en: 'Disqualified', cn: '不合格' }] },
+    { id: 'qc10', en: 'The suitability of the tightness of the equipment parts (Exp: Glass, Acrylic)', cn: '设备部件紧固程度的适宜性 (例如：玻璃、亚克力)', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Best fit', cn: '合适' }, { en: 'Unfit (too tight/too loose)', cn: '不合适 (太紧/太松）' }, { en: 'Install at site', cn: '在现场安装' }] },
+    { id: 'qc11', en: 'Correctness of the types and thickness of the glass', cn: '玻璃的种类与厚度是否正确', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Correct', cn: '正确' }, { en: 'Incorrect', cn: '不正确' }] },
+    { id: 'qc12', en: 'Smoothness of Moving Parts? (Hinge, Handle, Drawer, Wheel)', cn: '可移动部件是否顺畅 ？(铰链, 把手, 抽屉 , 轮子）', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Smooth', cn: '顺畅' }, { en: 'Hindered', cn: '不顺畅' }] },
+    { id: 'qc13', en: 'Water Leaking？', cn: '是否漏水？', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Water leakage', cn: '漏水' }, { en: 'Leak-proof', cn: '不漏水' }] },
+    { id: 'qc14', en: 'Water able to flow out of finished product? (Sink, Bain marie, Exhaust hood, Water boiler, Drainage channel)', cn: '水能否从成品流出？(水槽、保温锅、排气罩、热水器、排水沟)', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Able to flow out', cn: '能流出' }, { en: 'Unable to flow out', cn: '不能流出' }] },
+    { id: 'qc15', en: 'Electrical Product Functioning？', cn: '电器是否能运作？', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Functioning', cn: '能运作' }, { en: 'Not Functioning', cn: '不能运作' }] },
+    { id: 'qc16', en: 'Gas Pipe Leaking？', cn: '煤气管是否漏气?', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Gas leakage', cn: '漏气' }, { en: 'Leak-proof', cn: '不漏气' }] },
+    { id: 'qc17', en: 'HL Logo molded according to drawing?', cn: '是否根据图纸印上HL标志?', options: [{ en: 'Drawing has HL Logo, product has HL Logo', cn: '图纸有HL标志，产品有HL标志' }, { en: 'Drawing has HL Logo, product no HL Logo', cn: '图纸有HL标志，产品没HL标志' }, { en: 'Drawing no HL Logo, product has HL Logo', cn: '图纸没HL标志，产品有HL标志' }, { en: 'Drawing no HL Logo, product no HL Logo', cn: '图纸没HL标志，产品没HL标志' }] },
+    { id: 'qc18', en: 'Wheel Paste with Masking Tape', cn: '轮是否贴上胶纸', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Pasted', cn: '贴了' }, { en: 'Did not paste', cn: '没贴' }] },
+    { id: 'qc19', en: 'Wheel rollable？', cn: '轮是否能滚动？', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Rollable', cn: '能滚动' }, { en: 'Stuck', cn: '不能滚动' }] },
+    { id: 'qc20', en: 'Brake of the wheel functioning?', cn: '轮的刹车是否起作用？', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Functioning', cn: '起作用' }, { en: 'Not Functioning', cn: '失效' }] },
+    { id: 'qc21', en: 'Bullet Feet Adjustable？', cn: '可调节的桌角能否调节？', options: [{ en: 'Not applicable', cn: '不适用' }, { en: 'Adjustable', cn: '能调节' }, { en: 'Unable to adjust', cn: '无法调节' }] },
+    { id: 'qc22', en: 'Other Quality Control Features', cn: '其他质检项目', options: [] }
+];
+
+const GAS_QC_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbxcojZwHf6OCFr4XAiyJvDuQ0jnc8e0J_8WfXZ-MChSgJ-5V8mSkJ7UuhfGaLVzJFa6tQ/exec';
+
+const cardContents = [
+    {
+        title: "Received From 从哪收到",
+        frames: [
+            {
+                title: "Received From 从哪收到",
+                options: [
+                    {id: "rf1-1", en: "Received 3D Drawing (Completely Stamped)", cn: "收到完整盖章的立体图"},
+                    {id: "rf1-2", en: "Received Checked 3D Drawing from Supervisor", cn: "从头手那收到已检查的立体图"},
+                    {id: "rf1-3", en: "Received 2D Drawing from Drawing Department", cn: "从绘图部收到展开图"},
+                    {id: "rf1-4", en: "Received Checked 2D Drawing from Supervisor", cn: "从头手那收到已检查的展开图"},
+                    {id: "rf1-5", en: "Received Stamped 2D Drawing from Document Control", cn: "从文件管理部收到已盖章的展开图"},
+                    {id: "rf1-6", en: "Received from Laser Cutting", cn: "从激光切割部收到"},
+                    {id: "rf1-7", en: "Received from V Cut", cn: "从V槽切割机收到"},
+                    {id: "rf1-8", en: "Received from Bending", cn: "从凹板部收到"},
+                    {id: "rf1-9", en: "Received from Cutting", cn: "从切割部收到"},
+                    {id: "rf1-10", en: "Received from Welding & Assembly", cn: "从焊接与组装部收到"},
+                    {id: "rf1-11", en: "Received from Polishing", cn: "从抛光部收到"},
+                    {id: "rf1-12", en: "Received from Acid Wash", cn: "从化学清洗部收到"},
+                    {id: "rf1-13", en: "Received from Electrical Work", cn: "从电工部收到"},
+                    {id: "rf1-14", en: "Received from Gas Fitting", cn: "从接气管部收到"},
+                    {id: "rf1-15", en: "Received from Plumbing Job", cn: "从接水管部收到"},
+                    {id: "rf1-16", en: "Received from Quality Control", cn: "从质检部收到"},
+                    {id: "rf1-17", en: "Received from Packaging", cn: "从包装部收到"},
+                    {id: "rf1-18", en: "Received from Finished Goods Labeling", cn: "从成品标签部收到"},
+                    {id: "rf1-19", en: "Received Order from Marketing Department to Deliver Product to Sub-Contractor", cn: "从成品标签部收到"},
+                    {id: "rf1-20", en: "Received Order from Marketing Department to Bring Back Processed Product", cn: "从市场部收到指令把代工/分包商处理好的产品拿回来"},
+                    {id: "rf1-21", en: "Received Product from Sub Contractor", cn: "从代工/分包商收到产品"}
+                ]
+            },
+            {
+                title: "Check 检查",
+                options: [
+                    {id: "rf2-1", en: "Pass", cn: "过关"},
+                    {id: "rf2-2", en: "Deficiencies", cn: "不足之处"}
+                ],
+                hasInput: true
+            }
+        ]
+    },
+    {
+        title: "Job Completed 已完成的工作",
+        frames: [
+            {
+                title: "Job Completed 已完成的工作",
+                options: [
+                    {id: "jc1-1", en: "QR Code Creation", cn: "二维码创建"},
+                    {id: "jc1-2", en: "Document Control: Checked & Stamped", cn: "文件管理: 检查盖章"},
+                    {id: "jc1-3", en: "Project Department: Explained & Passed Drawing", cn: "项目部: 讲解 & 下图"},
+                    {id: "jc1-4", en: "Supervisor: Checked 3D Drawing", cn: "头手: 完成立体图的检查"},
+                    {id: "jc1-5", en: "2D Drawing", cn: "展开图"},
+                    {id: "jc1-6", en: "Supervisor: Checked 2D Drawing & Signed", cn: "头手: 完成展开图的检查并签名"},
+                    {id: "jc1-7", en: "Laser Cutting", cn: "激光切割"},
+                    {id: "jc1-8", en: "V Cut", cn: "V槽切割"},
+                    {id: "jc1-9", en: "Bending", cn: "凹板"},
+                    {id: "jc1-10", en: "Cutting", cn: "切割"},
+                    {id: "jc1-11", en: "Welding & Assembly", cn: "焊接与组装"},
+                    {id: "jc1-12", en: "Painting", cn: "上漆"},
+                    {id: "jc1-13", en: "Polishing", cn: "抛光"},
+                    {id: "jc1-14", en: "Acid Wash", cn: "化学清洗"},
+                    {id: "jc1-15", en: "Electrical Work", cn: "电工"},
+                    {id: "jc1-16", en: "Gas Fitting", cn: "气管工"},
+                    {id: "jc1-17", en: "Plumbing Job", cn: "水管工"},
+                    {id: "jc1-18", en: "Quality Control", cn: "质检"},
+                    {id: "jc1-19", en: "Packaging", cn: "包装"},
+                    {id: "jc1-20", en: "Finished Goods Labeling", cn: "给成品贴标签"},
+                    {id: "jc1-21", en: "Deliver Product to Sub-Contractor", cn: "送产品到代工/分包商"},
+                    {id: "jc1-22", en: "Bring Back Processed Product from Sub-Contractor", cn: "从代工/分包商拿回处理好的产品"},
+                    {id: "jc1-23", en: "Shipping Out", cn: "出货"}
+                ]
+            },
+            { title: "Quantity of Product Completed by You 由你完成的产品数量", options: [] }
+        ]
+    },
+    { title: "Quality Control 质量检查", frames: [] }
+];
+
+// ========== Device detection ==========
+function isMobile() {
+    return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+// ========== Scroll handling ==========
+let currentScrollPosition = 0;
+let isUserScrolling = false;
+
+function setupScrollHandlers() {
+    const contentFrame = document.getElementById('contentFrame');
+    if (!contentFrame) return;
+    
+    contentFrame.addEventListener('scroll', function() {
+        currentScrollPosition = this.scrollTop;
+        isUserScrolling = true;
+        clearTimeout(window.scrollTimeout);
+        window.scrollTimeout = setTimeout(function() {
+            isUserScrolling = false;
+        }, 150);
+    });
+}
+
+function fixScrollPosition() {
+    const contentFrame = document.getElementById('contentFrame');
+    if (!contentFrame || !isUserScrolling) return;
+    requestAnimationFrame(() => { contentFrame.scrollTop = currentScrollPosition; });
+}
+
+// ========== QR Scanner functions ==========
+async function startQRScanner() {
+    try {
+        document.getElementById('startScanner').style.display = 'none';
+        document.getElementById('stopScanner').style.display = 'inline-block';
+        document.getElementById('switchCamera').style.display = 'inline-block';
+        document.getElementById('scannerOverlay').classList.add('hidden');
+        document.getElementById('cameraInstruction').style.display = 'block';
+        
+        if (isMobileDevice && typeof Html5QrcodeScanner !== 'undefined') {
+            await startMobileQRScanner();
+        } else {
+            await startDesktopQRScanner();
+        }
+    } catch (error) {
+        console.error("Camera error:", error);
+        alert("Unable to access camera. Please check permissions.");
+        stopQRScanner();
+    }
+}
+
+async function startDesktopQRScanner() {
+    try {
+        const constraints = { video: { facingMode: currentFacingMode, width: { ideal: 1280 }, height: { ideal: 720 } } };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoStream = stream;
+        document.getElementById('scannerVideo').srcObject = stream;
+        await document.getElementById('scannerVideo').play();
+        qrScannerActive = true;
+        requestAnimationFrame(scanQRCode);
+    } catch (error) {
+        alert("Unable to access camera: " + error.message);
+        stopQRScanner();
+    }
+}
+
+async function startMobileQRScanner() {
+    try {
+        if (html5QrcodeScanner) { await html5QrcodeScanner.clear(); }
+        html5QrcodeScanner = new Html5Qrcode("scannerContainer");
+        await html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+            (decodedText) => { processScannedQR(decodedText); },
+            (errorMessage) => { console.log("Scanning..."); }
+        );
+    } catch (err) {
+        alert("Camera initialization failed: " + err.message);
+        stopQRScanner();
+    }
+}
+
+function scanQRCode() {
+    if (!qrScannerActive) return;
+    const scannerVideo = document.getElementById('scannerVideo');
+    const scannerCanvas = document.getElementById('scannerCanvas');
+    const scannerContext = scannerCanvas.getContext('2d', { willReadFrequently: true });
+    
+    if (scannerVideo.readyState === scannerVideo.HAVE_ENOUGH_DATA) {
+        scannerCanvas.width = scannerVideo.videoWidth;
+        scannerCanvas.height = scannerVideo.videoHeight;
+        scannerContext.drawImage(scannerVideo, 0, 0, scannerCanvas.width, scannerCanvas.height);
+        try {
+            const imageData = scannerContext.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+            if (code) { processScannedQR(code.data); stopQRScanner(); }
+        } catch (error) { console.warn('Error scanning QR code:', error); }
+    }
+    if (qrScannerActive) requestAnimationFrame(scanQRCode);
+}
+
+async function stopQRScanner() {
+    qrScannerActive = false;
+    if (html5QrcodeScanner) {
+        try { await html5QrcodeScanner.stop(); html5QrcodeScanner.clear(); html5QrcodeScanner = null; }
+        catch (err) { console.error("Error stopping mobile scanner:", err); }
+    }
+    if (videoStream) { videoStream.getTracks().forEach(track => track.stop()); videoStream = null; }
+    const scannerVideo = document.getElementById('scannerVideo');
+    if (scannerVideo) scannerVideo.srcObject = null;
+    document.getElementById('startScanner').style.display = 'inline-block';
+    document.getElementById('stopScanner').style.display = 'none';
+    document.getElementById('switchCamera').style.display = 'none';
+    document.getElementById('scannerOverlay').classList.remove('hidden');
+    document.getElementById('cameraInstruction').style.display = 'none';
+}
+
+function switchCamera() {
+    currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+    stopQRScanner();
+    setTimeout(() => { startQRScanner(); }, 500);
+}
+
+function processScannedQR(qrData) {
+    qrData = qrData.trim();
+    if (qrData.startsWith('http')) {
+        try {
+            const url = new URL(qrData);
+            const pathParts = url.pathname.split('/').filter(p => p);
+            if (pathParts.length > 0) { validateEmployee(pathParts[pathParts.length - 1]); return; }
+        } catch (e) {}
+    }
+    validateEmployee(qrData);
+}
+
+function validateEmployee(employeeKey) {
+    if (EMPLOYEE_MAP[employeeKey]) {
+        const employeeName = EMPLOYEE_MAP[employeeKey];
+        document.getElementById('employeeNameDisplay').textContent = employeeName;
+        document.getElementById('employeeWelcome').style.display = 'block';
+        setTimeout(() => { handleCredentialScan(employeeName); }, 1000);
+    } else {
+        const cleanKey = employeeKey.split('?')[0].split('#')[0];
+        if (EMPLOYEE_MAP[cleanKey]) {
+            const employeeName = EMPLOYEE_MAP[cleanKey];
+            document.getElementById('employeeNameDisplay').textContent = employeeName;
+            document.getElementById('employeeWelcome').style.display = 'block';
+            setTimeout(() => { handleCredentialScan(employeeName); }, 1000);
+        } else {
+            alert(`Unknown employee QR code.\n\nScanned: ${employeeKey}\n\nPlease scan a valid employee QR code.`);
+        }
+    }
+}
+
+async function updateLastUserInformation() {
+    try {
+        const params = getUrlParameters();
+        if (!params || !params.salesOrderNo || !params.itemNo) return;
+        
+        document.getElementById('lastUserValue').textContent = 'Loading...';
+        document.getElementById('lastUserStatusValue').textContent = 'Loading...';
+        document.getElementById('lastUserSelectionValue').textContent = 'Loading...';
+        
+        const lastUserData = await fetchLastUserData(params.salesOrderNo, params.itemNo);
+        
+        if (lastUserData.success) {
+            document.getElementById('lastUserValue').textContent = lastUserData.lastUser;
+            document.getElementById('lastUserStatusValue').textContent = lastUserData.lastUserStatus;
+            document.getElementById('lastUserSelectionValue').textContent = lastUserData.lastUserSelection;
+        } else {
+            document.getElementById('lastUserValue').textContent = '-';
+            document.getElementById('lastUserStatusValue').textContent = '-';
+            document.getElementById('lastUserSelectionValue').textContent = '-';
+        }
+    } catch (error) {
+        document.getElementById('lastUserValue').textContent = '-';
+        document.getElementById('lastUserStatusValue').textContent = '-';
+        document.getElementById('lastUserSelectionValue').textContent = '-';
+    }
+}
+
+function handleCredentialScan(employeeName) {
+    stopQRScanner();
+    document.getElementById("drawingSection").style.display = "none";
+    document.getElementById("workSection").style.display = "block";
+    currentUser = employeeName;
+    document.getElementById("currentUserName").textContent = "Current User：" + employeeName;
+    updateDrawingInfoSummary();
+    document.getElementById('drawingInfoSummary').style.display = "block";
+    
+    if (JOB_COMPLETED_USERS_NO_QUANTITY.includes(employeeName)) {
+        currentCardIndex = 1;
+    } else {
+        currentCardIndex = 0;
+    }
+    
+    clearAllSelections();
+    initCards();
+    renderCardContent();
+    setupScrollHandlers();
+    updateLastUserInformation();
+}
+
+function updateDrawingInfoSummary() {
+    const summaryHTML = `
+        <span class="info-item"><span class="info-label">Sales Order No.</span><span>${drawingInfo.salesOrder}</span></span>
+        <span class="info-separator">-</span>
+        <span class="info-item"><span class="info-label">Customer Name</span><span>${drawingInfo.customerName}</span></span>
+        <span class="info-separator">-</span>
+        <span class="info-item"><span class="info-label">Item No.</span><span>${drawingInfo.itemNo}</span></span>
+        <span class="info-separator">-</span>
+        <span class="info-item"><span class="info-label">Item Name</span><span>${drawingInfo.itemName}</span></span>
+        <span class="info-separator">-</span>
+        <span class="info-item"><span class="info-label">Dimension</span><span>${drawingInfo.dimension}</span></span>
+        <span class="info-separator">-</span>
+        <span class="info-item"><span class="info-label">Quantity</span><span>${drawingInfo.quantity}</span></span>
+        <span class="info-separator">-</span>
+        <span class="info-item"><span class="info-label">Unit of Measurement</span><span>${drawingInfo.unit}</span></span>
+        <span class="info-separator">-</span>
+        <span class="info-item"><span class="info-label">EDD:</span><span>${drawingInfo.deliveryDate}</span></span>
+    `;
+    document.getElementById('drawingInfoSummary').innerHTML = summaryHTML;
+}
+
+function initCards() {
+    const cards = document.querySelectorAll('.card-box');
+    cards.forEach(card => {
+        card.addEventListener('click', function(e) {
+            e.preventDefault(); e.stopPropagation();
+            const newIndex = parseInt(this.getAttribute('data-card-index'));
+            if (newIndex === currentCardIndex) return;
+            clearOtherPagesSelections(newIndex);
+            currentCardIndex = newIndex;
+            updateCardSelection();
+            updateCardUserSelections();
+            renderCardContent();
+        });
+    });
+    updateCardSelection();
+    updateCardUserSelections();
+}
+
+function clearOtherPagesSelections(newPageIndex) {
+    if (newPageIndex !== 0) { selectedOptions.receivedFrom1 = null; selectedOptions.receivedFrom2 = null; }
+    if (newPageIndex !== 1) { selectedOptions.jobCompleted = null; jobCompletedQuantity = ""; }
+    if (newPageIndex !== 2) { Object.keys(qcData).forEach(key => { qcData[key] = { selected: null, details: '' }; }); qcUnlocked = false; }
+    updateCardUserSelections();
+}
+
+function updateCardSelection() {
+    document.querySelectorAll('.card-box').forEach((card, index) => {
+        card.classList.remove('selected');
+        if (index === currentCardIndex) card.classList.add('selected');
+    });
+}
+
+function updateCardUserSelections() {
+    if (selectedOptions.receivedFrom1 && selectedOptions.receivedFrom2) {
+        document.getElementById('cardSelection0').textContent = `${getOptionTextShort(selectedOptions.receivedFrom1)} / ${getOptionTextShort(selectedOptions.receivedFrom2)}`;
+    } else { document.getElementById('cardSelection0').textContent = ''; }
+    
+    if (selectedOptions.jobCompleted) {
+        document.getElementById('cardSelection1').textContent = getOptionTextShort(selectedOptions.jobCompleted);
+    } else { document.getElementById('cardSelection1').textContent = ''; }
+    
+    document.getElementById('cardSelection2').textContent = checkQCCompleted() ? 'Completed' : '';
+}
+
+function getOptionTextShort(optionId) {
+    if (!optionId) return "";
+    for (let card of cardContents) {
+        for (let frame of card.frames) {
+            for (let option of frame.options) {
+                if (option.id === optionId) {
+                    let text = option.en;
+                    if (text.toLowerCase().startsWith("received from ")) text = text.substring("Received from ".length);
+                    else if (text.toLowerCase().startsWith("received ")) text = text.substring("Received ".length);
+                    return text.length > 25 ? text.substring(0, 25) + '...' : text;
+                }
+            }
+        }
+    }
+    return optionId;
+}
+
+function hasSelectionInCard(cardIndex) {
+    if (cardIndex === 0) return selectedOptions.receivedFrom1 && selectedOptions.receivedFrom2;
+    if (cardIndex === 1) {
+        if (JOB_COMPLETED_USERS_NO_QUANTITY.includes(currentUser)) return selectedOptions.jobCompleted !== null;
+        return selectedOptions.jobCompleted !== null && jobCompletedQuantity !== "";
+    }
+    if (cardIndex === 2) return checkQCCompleted();
+    return false;
+}
+
+function hasSelectionInCurrentCard() { return hasSelectionInCard(currentCardIndex); }
+
+function clearAllSelections() {
+    selectedOptions = { receivedFrom1: null, receivedFrom2: null, jobCompleted: null, qualityControl: null };
+    jobCompletedQuantity = "";
+    Object.keys(qcData).forEach(key => { qcData[key] = { selected: null, details: '' }; });
+    qcUnlocked = false;
+    isSubmitted = false;
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) submitBtn.disabled = false;
+    const successMessage = document.getElementById('successMessage');
+    if (successMessage) successMessage.style.display = 'none';
+    const submittingMessage = document.getElementById('submittingMessage');
+    if (submittingMessage) submittingMessage.style.display = 'none';
+    const submitErrorMessage = document.getElementById('submitErrorMessage');
+    if (submitErrorMessage) submitErrorMessage.style.display = 'none';
+    updateCardUserSelections();
+}
+
+function renderCardContent() {
+    const contentFrame = document.getElementById('contentFrame');
+    const currentCard = cardContents[currentCardIndex];
+    let contentHTML = `<div class="frame-title">${currentCard.title}</div>`;
+    
+    if (currentCardIndex === 0) {
+        contentHTML += `
+            <div style="margin-bottom: 15px;">
+                <div style="font-weight: 600; margin-bottom: 6px; color: #333;">${currentCard.frames[0].title}:</div>
+                ${renderOptions(currentCard.frames[0].options, 'receivedFrom1')}
+            </div>
+            <div style="margin-bottom: 15px;">
+                <div style="font-weight: 600; margin-bottom: 6px; color: #333;">${currentCard.frames[1].title}:</div>
+                ${renderOptions(currentCard.frames[1].options, 'receivedFrom2')}
+                ${currentCard.frames[1].hasInput ? `
+                    <div id="deficiencyInput" style="margin-top: 10px; display: none;">
+                        <div style="margin-bottom: 5px; font-weight: 500; color: #555;">Deficiency Details (不足之处详情):</div>
+                        <input type="text" id="deficiencyText" class="clickable-input" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px;" placeholder="Enter deficiency details here...">
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    } else if (currentCardIndex === 1) {
+        contentHTML += `
+            <div style="margin-bottom: 15px;">
+                <div style="font-weight: 600; margin-bottom: 6px; color: #333;">${currentCard.frames[0].title}:</div>
+                ${renderOptions(currentCard.frames[0].options, 'jobCompleted')}
+            </div>
+        `;
+        if (!JOB_COMPLETED_USERS_NO_QUANTITY.includes(currentUser)) {
+            contentHTML += `
+                <div class="quantity-section">
+                    <div style="font-weight: 600; margin-bottom: 10px; color: #333; text-align: center; font-size: 15px;">
+                        Quantity of Product Completed by You - 由你完成的产品数量：
+                    </div>
+                    <div class="quantity-input-container">
+                        <label for="jobCompletedQuantity">Enter quantity (numbers only):</label>
+                        <input type="text" id="jobCompletedQuantity" class="clickable-input" 
+                               placeholder="Enter quantity here..." 
+                               value="${jobCompletedQuantity}"
+                               oninput="handleQuantityInput(this)">
+                    </div>
+                </div>
+            `;
+        }
+    } else if (currentCardIndex === 2) {
+        if (!qcUnlocked) {
+            contentHTML += `
+                <div style="text-align: center; padding: 20px 15px;">
+                    <div style="font-size: 15px; color: #666; margin-bottom: 12px;">Quality Control section is locked</div>
+                    <div class="password-section">
+                        <div style="margin-bottom: 8px; color: #555;">Enter password to unlock:</div>
+                        <div class="password-input">
+                            <input type="text" id="qcPassword" placeholder="Enter password..." class="clickable-input" autofocus>
+                            <button onclick="checkQCPassword()">Unlock</button>
+                        </div>
+                        <div id="passwordError" style="color: #e74c3c; margin-top: 8px; display: none;">Incorrect password. Try again.</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            contentHTML += renderQCQuestions();
+        }
+    }
+    
+    contentFrame.innerHTML = contentHTML;
+    
+    setTimeout(() => {
+        if (currentCardIndex === 2 && qcUnlocked) {
+            addQCOptionListeners();
+            restoreQCOptions();
+            fixQCInputs();
+        } else {
+            addOptionListeners();
+            restoreSelectedOptions();
+        }
+        
+        if (currentCardIndex === 1 && !JOB_COMPLETED_USERS_NO_QUANTITY.includes(currentUser)) {
+            const quantityInput = document.getElementById('jobCompletedQuantity');
+            if (quantityInput) {
+                quantityInput.addEventListener('click', function(e) { e.stopPropagation(); this.focus(); });
+                quantityInput.addEventListener('focus', function(e) { e.stopPropagation(); });
+                quantityInput.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+                if (jobCompletedQuantity) quantityInput.value = jobCompletedQuantity;
+            }
+        }
+        
+        fixScrollPosition();
+        updateSubmitButton();
+    }, 10);
+}
+
+function fixQCInputs() {
+    const qcPasswordInput = document.getElementById('qcPassword');
+    if (qcPasswordInput) {
+        qcPasswordInput.addEventListener('click', function(e) { e.stopPropagation(); this.focus(); });
+        qcPasswordInput.addEventListener('focus', function(e) { e.stopPropagation(); });
+    }
+    for (let i = 1; i <= 22; i++) {
+        const detailsInput = document.getElementById(`qc${i}_details`);
+        if (detailsInput) {
+            detailsInput.addEventListener('click', function(e) { e.stopPropagation(); this.focus(); });
+            detailsInput.addEventListener('focus', function(e) { e.stopPropagation(); });
+            detailsInput.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+        }
+    }
+}
+
+function renderQCQuestions() {
+    let html = '<div style="max-width: 100%; overflow-x: hidden;">';
+    QC_QUESTIONS.forEach((question, index) => {
+        const questionNumber = index + 1;
+        const qcDataItem = qcData[question.id];
+        html += `
+            <div class="qc-question" id="${question.id}_container">
+                <div class="question-text"><span class="question-number">${questionNumber}.</span>${question.en}</div>
+                <div class="question-chinese">${question.cn}</div>
+        `;
+        if (question.options && question.options.length > 0) {
+            html += `<div class="qc-options" id="${question.id}_options">`;
+            question.options.forEach((option) => {
+                const isSelected = qcDataItem.selected === option.en;
+                html += `
+                    <div class="qc-option-item ${isSelected ? 'selected' : ''}" data-question="${question.id}" data-option="${option.en}">
+                        <div class="qc-radio ${isSelected ? 'selected' : ''}"></div>
+                        <div class="qc-option-text">${option.en} ${option.cn ? `(${option.cn})` : ''}</div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+        html += `
+            <div class="qc-details">
+                <div class="details-label">Details：</div>
+                <input type="text" class="details-input" id="${question.id}_details" placeholder="Enter details here..."
+                       value="${qcDataItem.details || ''}" oninput="updateQCDetails('${question.id}', this.value)">
+            </div>
+            <div class="error-message" id="${question.id}_error">Please select an option for this question</div>
+            </div>
+        `;
+    });
+    html += '</div>';
+    return html;
+}
+
+function addQCOptionListeners() {
+    document.querySelectorAll('.qc-option-item').forEach(item => {
+        item.removeEventListener('click', handleQCOptionClick);
+        item.addEventListener('click', handleQCOptionClick);
+    });
+    document.querySelectorAll('.qc-question').forEach(container => {
+        container.addEventListener('click', function(e) {
+            if (!e.target.closest('.qc-option-item') && !e.target.closest('.details-input')) e.stopPropagation();
+        });
+    });
+}
+
+function handleQCOptionClick(e) {
+    e.stopPropagation(); e.preventDefault();
+    const questionId = this.getAttribute('data-question');
+    const optionValue = this.getAttribute('data-option');
+    const savedScroll = currentScrollPosition;
+    qcData[questionId].selected = optionValue;
+    updateQCOptionStyles(questionId, optionValue);
+    clearQCError(questionId);
+    updateSubmitButton();
+    updateCardUserSelections();
+    setTimeout(() => {
+        const contentFrame = document.getElementById('contentFrame');
+        if (contentFrame) contentFrame.scrollTop = savedScroll;
+    }, 10);
+}
+
+function updateQCOptionStyles(questionId, selectedOption) {
+    const container = document.getElementById(`${questionId}_options`);
+    if (!container) return;
+    container.querySelectorAll('.qc-option-item').forEach(option => {
+        const radio = option.querySelector('.qc-radio');
+        if (option.getAttribute('data-option') === selectedOption) {
+            option.classList.add('selected'); if (radio) radio.classList.add('selected');
+        } else {
+            option.classList.remove('selected'); if (radio) radio.classList.remove('selected');
+        }
+    });
+}
+
+function updateQCDetails(questionId, value) { qcData[questionId].details = value; }
+
+function restoreQCOptions() {
+    Object.keys(qcData).forEach(questionId => {
+        if (qcData[questionId].selected) updateQCOptionStyles(questionId, qcData[questionId].selected);
+        const detailsInput = document.getElementById(`${questionId}_details`);
+        if (detailsInput) detailsInput.value = qcData[questionId].details || '';
+    });
+}
+
+function addOptionListeners() {
+    document.querySelectorAll('.option-item').forEach(item => {
+        item.removeEventListener('click', handleOptionClick);
+        item.addEventListener('click', handleOptionClick);
+    });
+}
+
+function handleOptionClick(e) {
+    e.stopPropagation(); e.preventDefault();
+    const optionId = this.getAttribute('data-id');
+    const category = this.getAttribute('data-category');
+    const savedScroll = currentScrollPosition;
+    selectedOptions[category] = optionId;
+    updateOptionStyles(category, optionId);
+    if (optionId === 'rf2-2') {
+        const deficiencyInput = document.getElementById('deficiencyInput');
+        if (deficiencyInput) { deficiencyInput.style.display = 'block'; setTimeout(() => { const t = document.getElementById('deficiencyText'); if (t) t.focus(); }, 50); }
+    } else if (category === 'receivedFrom2') {
+        const deficiencyInput = document.getElementById('deficiencyInput');
+        if (deficiencyInput) deficiencyInput.style.display = 'none';
+    }
+    updateCardUserSelections();
+    updateSubmitButton();
+    setTimeout(() => {
+        const contentFrame = document.getElementById('contentFrame');
+        if (contentFrame) contentFrame.scrollTop = savedScroll;
+    }, 10);
+}
+
+function updateOptionStyles(category, selectedId) {
+    document.querySelectorAll(`.option-item[data-category="${category}"]`).forEach(item => {
+        const radio = item.querySelector('.custom-radio');
+        const isSelected = item.getAttribute('data-id') === selectedId;
+        item.classList.toggle('selected', isSelected);
+        if (radio) radio.classList.toggle('selected', isSelected);
+    });
+}
+
+function checkQCCompleted() {
+    for (let i = 0; i < 21; i++) {
+        const questionId = `qc${i + 1}`;
+        if (!qcData[questionId] || !qcData[questionId].selected) return false;
+    }
+    return true;
+}
+
+function validateQCData() {
+    let isValid = true;
+    for (let i = 0; i < 21; i++) {
+        const questionId = `qc${i + 1}`;
+        const container = document.getElementById(`${questionId}_container`);
+        const errorElement = document.getElementById(`${questionId}_error`);
+        if (!qcData[questionId] || !qcData[questionId].selected) {
+            if (container) container.classList.add('error-highlight');
+            if (errorElement) errorElement.style.display = 'block';
+            isValid = false;
+        } else {
+            if (container) container.classList.remove('error-highlight');
+            if (errorElement) errorElement.style.display = 'none';
+        }
+    }
+    return isValid;
+}
+
+function clearQCError(questionId) {
+    const container = document.getElementById(`${questionId}_container`);
+    const errorElement = document.getElementById(`${questionId}_error`);
+    if (container) container.classList.remove('error-highlight');
+    if (errorElement) errorElement.style.display = 'none';
+}
+
+function handleQuantityInput(input) {
+    const savedScroll = currentScrollPosition;
+    input.value = input.value.replace(/[^0-9]/g, '');
+    jobCompletedQuantity = input.value;
+    updateSubmitButton();
+    setTimeout(() => {
+        const contentFrame = document.getElementById('contentFrame');
+        if (contentFrame) contentFrame.scrollTop = savedScroll;
+    }, 10);
+}
+
+function checkQCPassword() {
+    const passwordInput = document.getElementById('qcPassword');
+    const passwordError = document.getElementById('passwordError');
+    const savedScroll = currentScrollPosition;
+    if (passwordInput && passwordInput.value === '1234') {
+        qcUnlocked = true;
+        renderCardContent();
+    } else {
+        if (passwordError) passwordError.style.display = 'block';
+        if (passwordInput) passwordInput.value = '';
+        setTimeout(() => {
+            const contentFrame = document.getElementById('contentFrame');
+            if (contentFrame) contentFrame.scrollTop = savedScroll;
+        }, 10);
+    }
+}
+
+function renderOptions(options, category) {
+    let html = '';
+    options.forEach(option => {
+        const isSelected = selectedOptions[category] === option.id;
+        html += `
+            <div class="option-item ${isSelected ? 'selected' : ''}" data-id="${option.id}" data-category="${category}">
+                <div class="custom-radio ${isSelected ? 'selected' : ''}" data-for="${option.id}"></div>
+                <div class="option-label">
+                    <div class="option-english">${option.en}</div>
+                    <div class="option-chinese">${option.cn}</div>
+                </div>
+            </div>
+        `;
+    });
+    return html;
+}
+
+function restoreSelectedOptions() {
+    Object.keys(selectedOptions).forEach(category => {
+        const optionId = selectedOptions[category];
+        if (optionId) {
+            updateOptionStyles(category, optionId);
+            if (optionId === 'rf2-2') {
+                const deficiencyInput = document.getElementById('deficiencyInput');
+                if (deficiencyInput) deficiencyInput.style.display = 'block';
+            }
+        }
+    });
+}
+
+function updateSubmitButton() {
+    const submitBtn = document.getElementById('submitBtn');
+    const hasSelection = hasSelectionInCurrentCard();
+    submitBtn.disabled = !hasSelection || isSubmitted;
+}
+
+function getOptionText(optionId) {
+    if (!optionId) return "Not selected";
+    for (let card of cardContents) {
+        for (let frame of card.frames) {
+            for (let option of frame.options) {
+                if (option.id === optionId) return `${option.en} (${option.cn})`;
+            }
+        }
+    }
+    return optionId;
+}
+
+function getPageName(cardIndex) {
+    switch(cardIndex) {
+        case 0: return "Received From";
+        case 1: return "Job Completed";
+        case 2: return "Quality Control";
+        default: return "Unknown";
+    }
+}
+
+function getQCAnswersSummary() {
+    let summary = '';
+    for (let i = 0; i < 22; i++) {
+        const questionId = `qc${i + 1}`;
+        const answer = qcData[questionId];
+        if (answer && answer.selected) {
+            summary += `<div class="qc-summary-row">
+                <div class="qc-summary-number">${i + 1}.</div>
+                <div class="qc-summary-answer">
+                    ${answer.selected}
+                    ${answer.details ? `<div class="qc-summary-details">${answer.details}</div>` : ''}
+                </div>
+            </div>`;
+        }
+    }
+    return summary;
+}
+
+function confirmSubmit() {
+    document.getElementById('confirmationModal').style.display = 'none';
+    
+    if (currentCardIndex === 2) {
+        if (!validateQCData()) {
+            alert("Please complete all required questions (1-21) before submitting.");
+            return;
+        }
+    }
+    
+    const submissionData = {
+        timestamp: new Date().toISOString(),
+        name: currentUser,
+        action: "",
+        received: "",
+        check: "",
+        jobCompleted: "",
+        quantity: "",
+        spreadsheetId: targetSpreadsheetInfo.spreadsheetId,
+        sheetName: targetSpreadsheetInfo.sheetName,
+        salesOrderNo: drawingInfo.salesOrder,
+        itemNo: drawingInfo.itemNo,
+        qcData: {}
+    };
+    
+    if (currentCardIndex === 0) {
+        submissionData.action = "Received from 从哪收到";
+        submissionData.received = getOptionText(selectedOptions.receivedFrom1);
+        submissionData.check = getOptionText(selectedOptions.receivedFrom2);
+        if (selectedOptions.receivedFrom2 === 'rf2-2') {
+            const deficiencyText = document.getElementById('deficiencyText');
+            if (deficiencyText && deficiencyText.value) submissionData.check += " - " + deficiencyText.value;
+        }
+    } else if (currentCardIndex === 1) {
+        submissionData.action = "Job Completed 已完成的工作";
+        submissionData.jobCompleted = getOptionText(selectedOptions.jobCompleted);
+        submissionData.quantity = jobCompletedQuantity || "";
+    } else if (currentCardIndex === 2) {
+        submissionData.action = "Quality Control 质量检查";
+        Object.keys(qcData).forEach(key => {
+            submissionData.qcData[key] = { selected: qcData[key].selected || '', details: qcData[key].details || '' };
+        });
+    }
+    
+    const submitBtn = document.getElementById('submitBtn');
+    const submittingMessage = document.getElementById('submittingMessage');
+    const successMessage = document.getElementById('successMessage');
+    const submitErrorMessage = document.getElementById('submitErrorMessage');
+    
+    submitBtn.disabled = true;
+    submittingMessage.style.display = 'flex';
+    successMessage.style.display = 'none';
+    submitErrorMessage.style.display = 'none';
+    isSubmitted = true;
+    
+    submitDataToGoogleSheets(submissionData);
+}
+
+function showConfirmationModal() {
+    if (isSubmitted) return;
+    const hasSelection = hasSelectionInCurrentCard();
+    if (!hasSelection) {
+        if (currentCardIndex === 2) { validateQCData(); alert("Please complete all required questions (1-21) before submitting."); }
+        else alert("Please make a selection before submitting.");
+        return;
+    }
+    
+    let confirmationMessage = `<div style="font-size: 11px; line-height: 1.2; margin-bottom: 8px;">
+        <div><strong>Drawing Info:</strong> ${document.getElementById('drawingInfoSummary').textContent}</div>
+        <div><strong>Current User:</strong> ${currentUser}</div>
+        <div><strong>Current Page:</strong> ${getPageName(currentCardIndex)}</div>
+    </div>`;
+    
+    if (currentCardIndex === 0) {
+        confirmationMessage += `<div style="font-size: 11px; line-height: 1.2; margin: 5px 0;">
+            <div><strong>1. Received From:</strong> ${getOptionText(selectedOptions.receivedFrom1)}</div>
+            <div><strong>2. Check:</strong> ${getOptionText(selectedOptions.receivedFrom2)}</div>
+        </div>`;
+        if (selectedOptions.receivedFrom2 === 'rf2-2') {
+            const deficiencyText = document.getElementById('deficiencyText');
+            if (deficiencyText && deficiencyText.value) confirmationMessage += `<div style="font-size: 11px; margin-top: 3px;"><strong>Deficiency Details:</strong> ${deficiencyText.value}</div>`;
+        }
+    } else if (currentCardIndex === 1) {
+        confirmationMessage += `<div style="font-size: 11px; line-height: 1.2; margin: 5px 0;"><div><strong>Selected:</strong> ${getOptionText(selectedOptions.jobCompleted)}</div></div>`;
+        if (!JOB_COMPLETED_USERS_NO_QUANTITY.includes(currentUser) && jobCompletedQuantity) {
+            confirmationMessage += `<div style="font-size: 11px; margin-top: 3px;"><strong>Quantity of Product Completed by You:</strong> ${jobCompletedQuantity}</div>`;
+        }
+    } else if (currentCardIndex === 2) {
+        confirmationMessage += `<div style="font-size: 11px; margin: 5px 0;"><strong>Quality Control Answers:</strong></div>`;
+        confirmationMessage += `<div class="qc-summary-compact">${getQCAnswersSummary()}</div>`;
+    }
+    
+    document.getElementById('modalMessage').innerHTML = confirmationMessage;
+    document.getElementById('confirmationModal').style.display = 'flex';
+}
+
+function cancelSubmit() { document.getElementById('confirmationModal').style.display = 'none'; }
+function submitData() { showConfirmationModal(); }
+
+function submitDataToGoogleSheets(submissionData) {
+    document.getElementById('form_timestamp').value = submissionData.timestamp;
+    document.getElementById('form_name').value = submissionData.name;
+    document.getElementById('form_action').value = submissionData.action;
+    document.getElementById('form_received').value = submissionData.received || "";
+    document.getElementById('form_check').value = submissionData.check || "";
+    document.getElementById('form_jobCompleted').value = submissionData.jobCompleted || "";
+    document.getElementById('form_quantity').value = submissionData.quantity || "";
+    document.getElementById('form_spreadsheetId').value = submissionData.spreadsheetId || "";
+    document.getElementById('form_sheetName').value = submissionData.sheetName || "";
+    document.getElementById('form_salesOrderNo').value = submissionData.salesOrderNo || "";
+    document.getElementById('form_itemNo').value = submissionData.itemNo || "";
+    
+    if (currentCardIndex === 2) {
+        Object.keys(qcData).forEach((key, index) => {
+            const qcIndex = index + 1;
+            const formQc = document.getElementById(`form_qc${qcIndex}`);
+            const formQcDetails = document.getElementById(`form_qc${qcIndex}_details`);
+            if (formQc) formQc.value = qcData[key].selected || '';
+            if (formQcDetails) formQcDetails.value = qcData[key].details || '';
+        });
+    }
+    
+    document.getElementById('dataForm').action = GAS_QC_SUBMIT_URL;
+    
+    const iframe = document.getElementById('hiddenIframe');
+    iframe.onload = null;
+    
+    iframe.onload = function() {
+        console.log('iframe onload triggered - GAS has completed processing');
+        
+        const submittingMessage = document.getElementById('submittingMessage');
+        const successMessage = document.getElementById('successMessage');
+        
+        if (submittingMessage) submittingMessage.style.display = 'none';
+        if (successMessage) successMessage.style.display = 'block';
+        
+        console.log('Now fetching updated last user information...');
+        updateLastUserInformation();
+    };
+    
+    document.getElementById('dataForm').submit();
+}
+
+// ========== NEW: Main init - uses local encrypted file instead of GAS ==========
+async function init() {
+    try {
+        document.getElementById('loadingContainer').style.display = 'block';
+        document.getElementById('loadingText').textContent = 'Loading product information...';
+        
+        const params = getUrlParameters();
+        hideError();
+        
+        if (!params) {
+            displayProductData({}, true);
+            startCountdown('-');
+            document.getElementById('loadingContainer').style.display = 'none';
+            return;
+        }
+        
+        if (!params.encryptionKey) {
+            showError('Missing Encryption Key', 'No K parameter found in URL. This QR code may be from the old system. Please contact admin.');
+            document.getElementById('loadingContainer').style.display = 'none';
+            return;
+        }
+        
+        try {
+            document.getElementById('loadingText').textContent = 'Decrypting product data...';
+            const result = await fetchProductData(params.salesOrderNo, params.itemNo, params.encryptionKey);
+            
+            if (result.error) {
+                showError('Error Loading Data', result.error);
+                displayProductData({}, true);
+                startCountdown('-');
+            } else {
+                const productData = result.data;
+                productData.salesOrderNo = params.salesOrderNo;
+                productData.itemNo = params.itemNo;
+                displayProductData(productData);
+                startCountdown(productData.estimatedDeliveryDate);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showError('Error Loading Data', error.message);
+            displayProductData({}, true);
+            startCountdown('-');
+        }
+        
+        document.getElementById('loadingContainer').style.display = 'none';
+    } catch (error) {
+        showError('Error Loading Data', error.message);
+    }
+}
+
+// ========== Page initialization ==========
+document.addEventListener('DOMContentLoaded', function() {
+    isMobileDevice = isMobile();
+    
+    document.getElementById('startScanner').addEventListener('click', startQRScanner);
+    document.getElementById('stopScanner').addEventListener('click', stopQRScanner);
+    document.getElementById('switchCamera').addEventListener('click', switchCamera);
+    
+    document.getElementById('submitBtn').addEventListener('click', function(e) {
+        e.preventDefault(); e.stopPropagation();
+        submitData();
+    });
+    
+    init();
+    
+    if (!isMobileDevice) {
+        const scannerInput = document.getElementById('scannerInput');
+        document.addEventListener("click", () => scannerInput.focus());
+        
+        scannerInput.addEventListener("keydown", (e) => {
+            if(e.key === "Enter") {
+                const value = scannerInput.value.trim();
+                scannerInput.value = "";
+                if (EMPLOYEE_MAP[value]) {
+                    const employeeName = EMPLOYEE_MAP[value];
+                    document.getElementById('employeeNameDisplay').textContent = employeeName;
+                    document.getElementById('employeeWelcome').style.display = 'block';
+                    setTimeout(() => { handleCredentialScan(employeeName); }, 1000);
+                } else {
+                    try { processScannedQR(value); }
+                    catch (error) { alert(`Unknown employee code: ${value}\n\nPlease scan a valid employee QR code.`); }
+                }
+            }
+        });
+        
+        setTimeout(() => { if (scannerInput) scannerInput.focus(); }, 500);
+    }
+});
+</script>
+</body>
+</html>
