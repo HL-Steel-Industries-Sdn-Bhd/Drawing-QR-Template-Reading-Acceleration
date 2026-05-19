@@ -1,0 +1,47 @@
+name: Update Encrypted Product Data
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: |
+          cd $GITHUB_WORKSPACE
+          npm init -y
+          npm install googleapis@137 crypto-js@4.2.0
+      
+      - name: Create data directory
+        run: mkdir -p $GITHUB_WORKSPACE/data
+      
+      - name: Run encrypt script
+        env:
+          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+          MASTER_SPREADSHEET_ID: '1QJxMVXoIPLIXOOJSzCMquJXu4q1vgRgCyNRKwsxf5TY'
+        run: node $GITHUB_WORKSPACE/scripts/encrypt.js
+      
+      - name: Commit and push if changes
+        run: |
+          cd $GITHUB_WORKSPACE
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet || (git commit -m "Auto-update encrypted product data [skip ci]" && git push)
